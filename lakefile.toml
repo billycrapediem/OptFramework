@@ -1,0 +1,10 @@
+name = "OptFramework"
+version = "0.1.0"
+defaultTargets = ["optframework"]
+
+[[lean_lib]]
+name = "OptFramework"
+
+[[lean_exe]]
+name = "optframework"
+root = "Main"
