@@ -24,10 +24,6 @@ class InexactProximalPoint (f : E → ℝ) (f' : E → E) (σ : ℝ) (x₀ : E) 
   lam : ℕ → ℝ
   delta : ℕ → ℝ
   eps : ℕ → ℝ
-  m : ℝ
-  fsc : StrongConvexOn univ m f
-  fc : ConvexOn ℝ univ f
-  m_pos : 0 < m
   σ_bound : 0 < σ ∧ σ ≤ 1
   x_init : x 0 = x₀
   lam_pos : ∀ k : ℕ, k > 0 → 0 < lam k

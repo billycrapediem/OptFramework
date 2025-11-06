@@ -108,12 +108,7 @@ def proximal_gradient_is_IPP
   (f h : E → ℝ) (f' : E → E) (x₀ : E) (σ : ℝ)
   (pgm : proximal_gradient_method f h f' x₀)
   (hσ : 0 < σ ∧ σ ≤ 1)
-  (hstep : pgm.t ≤ σ / pgm.L)
-  (m : ℝ) (m_pos : 0 < m)
-  (hsc : StrongConvexOn univ m (f + h))
-  (hf_conv : ConvexOn ℝ univ f)
-  (hh_conv : ConvexOn ℝ univ h)
-  (hdiff : ∀ x₁ : E, HasGradientAt f (f' x₁) x₁) :
+  (hstep : pgm.t ≤ σ / pgm.L):
   InexactProximalPoint (f + h) f' σ x₀ where
   x := pgm.x
   x_tilde := pgm.x
@@ -121,10 +116,6 @@ def proximal_gradient_is_IPP
   delta := λ k => 0
   eps := λ k => if k = 0 then 0 else
     f (pgm.x k) - (f (pgm.x (k-1)) + inner (f' (pgm.x (k-1))) (pgm.x k - pgm.x (k-1)))
-  m := m
-  fsc := hsc
-  fc := ConvexOn.add hf_conv hh_conv
-  m_pos := m_pos
   σ_bound := hσ
   x_init := pgm.ori
   lam_pos := by
@@ -143,7 +134,7 @@ def proximal_gradient_is_IPP
     simp only [Set.mem_setOf_eq]
     intro y
 
-    have f_bound := linearization_upper_bound f f' hdiff hf_conv (pgm.x (k-1)) y
+    have f_bound := linearization_upper_bound f f' pgm.h₁ pgm.fconv (pgm.x (k-1)) y
 
     have opt_cond := pg_optimality_condition f h f' pgm k hk y
 
@@ -174,7 +165,7 @@ def proximal_gradient_is_IPP
     have hk_ne : k ≠ 0 := Nat.pos_iff_ne_zero.mp hk
     simp [hk_ne]
     -- Apply the linearization error bound
-    have eps_bound := linearization_error_bound f f' (pgm.x (k-1)) (pgm.x k) pgm.L hdiff pgm.h₂
+    have eps_bound := linearization_error_bound f f' (pgm.x (k-1)) (pgm.x k) pgm.L pgm.h₁ pgm.h₂
 
     -- Apply the stepsize condition
     have step_bound := stepsize_implies_bound pgm.t pgm.L σ hstep pgm.hL
@@ -196,26 +187,14 @@ theorem proximal_gradient_convergence_rate
   (pgm : proximal_gradient_method f h f' x₀)
   (hσ : 0 < σ ∧ σ ≤ 1)
   (hstep : pgm.t ≤ σ / pgm.L)
-  (m : ℝ) (m_pos : 0 < m)
-  (hsc : StrongConvexOn univ m (f + h))
-  (hf_conv : ConvexOn ℝ univ f)
-  (hh_conv : ConvexOn ℝ univ h)
-  (hdiff : ∀ x₁ : E, HasGradientAt f (f' x₁) x₁)
   (f_min_exists : ∃ x_star : E, IsMinOn (f + h) univ x_star)
   (k : ℕ+) :
   let ϕ := f + h
-  let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep m m_pos hsc
-              hf_conv hh_conv hdiff
+  let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep
   let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
   let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
   let xstar := x_star ϕ f_min_exists
   ϕ x_hat - ϕ xstar ≤ (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
-
-
-
-  let fconv:= pgm.fconv
-  let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep m m_pos hsc
-              hf_conv hh_conv hdiff
-
+  let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep
   -- Apply the general IPP convergence theorem directly
   exact inexact_proximal_convergence_rate ippm f_min_exists k
