@@ -1,7 +1,4 @@
 import Optlib.Function.Lsmooth
-import Optlib.Function.Proximal
-import Optlib.Convex.StronglyConvex
-import Optlib.Algorithm.ProximalGradient
 
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
 variable {x₀ xm : E} {f : E → ℝ} {f' : E → E} {σ : ℝ}
@@ -26,9 +23,9 @@ class InexactProximalPoint (f : E → ℝ) (f' : E → E) (σ : ℝ) (x₀ : E) 
   eps : ℕ → ℝ
   σ_bound : 0 < σ ∧ σ ≤ 1
   x_init : x 0 = x₀
+  fc: ConvexOn ℝ univ f
   lam_pos : ∀ k : ℕ, k > 0 → 0 < lam k
   delta_nonneg : ∀ k : ℕ, k > 0 → 0 ≤ delta k
-  -- Modified: Use ε-subdifferential
   subgrad_cond : ∀ k : ℕ, k > 0 →
     (1 / lam k) • (x (k - 1) - x k) ∈ EpsSubderivAt f (x_tilde k) (eps k)
   prox_cond : ∀ k : ℕ, k > 0 →
@@ -474,40 +471,95 @@ theorem inexact_proximal_lemma2 (ippm : InexactProximalPoint f f' σ x₀)
         ring
 
 -- Step 1: Sum the key inequality over all iterations
+omit [CompleteSpace E] in
 lemma inexact_proximal_sum_lemma2 (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
-    let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
     let xstar := x_star f f_min_exists
     ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
     ∑ i in Finset.range k, ((1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2)
     ≤ ∑ i in Finset.range k, ippm.delta (i + 1) +
       1/2 * ‖x₀ - xstar‖^2 - 1/2 * ‖ippm.x k - xstar‖^2 := by
-  intro Λ xstar
-  -- Sum inexact_proximal_lemma2 from i=1 to k
-  have sum_ineq : ∀ n : ℕ, n ∈ Finset.range k →
-    ippm.lam (n + 1) * (f (ippm.x_tilde (n + 1)) - f xstar) +
-    (1 - σ) / 2 * ‖ippm.x_tilde (n + 1) - ippm.x n‖^2
-    ≤ ippm.delta (n + 1) + 1/2 * ‖ippm.x n - xstar‖^2 -
-      1/2 * ‖ippm.x (n + 1) - xstar‖^2 := by
-    intro n _
-    have hn : n + 1 > 0 := Nat.succ_pos n
-    exact inexact_proximal_lemma2 ippm f_min_exists (n + 1) hn
-  sorry
+  let xstar := x_star f f_min_exists
 
-  -- Sum both sides
+  -- Step 1: Apply lemma2 to each term
+  have h : ∀ i : ℕ, i < k →
+    ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
+    (1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2
+    ≤ ippm.delta (i + 1) + 1/2 * ‖ippm.x i - xstar‖^2 - 1/2 * ‖ippm.x (i + 1) - xstar‖^2 := by
+    intro i _
+    have pos_idx : 0 < i + 1 := by omega
+    exact inexact_proximal_lemma2 ippm f_min_exists (i + 1) pos_idx
 
+  -- Step 2: Sum both sides of th e inequality
+  have sum_h : ∑ i in Finset.range k,
+    (ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
+    (1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2)
+    ≤ ∑ i in Finset.range k,
+    (ippm.delta (i + 1) + 1/2 * ‖ippm.x i - xstar‖^2 - 1/2 * ‖ippm.x (i + 1) - xstar‖^2) := by
+    apply Finset.sum_le_sum
+    intro i hi
+    exact h i (Finset.mem_range.mp hi)
+
+  -- Step 3: Rearrange LHS - split the sum
+  have lhs_eq : ∑ i in Finset.range k,
+    (ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
+    (1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2)
+    = ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
+      ∑ i in Finset.range k, ((1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2) := by
+    exact Finset.sum_add_distrib
+
+  -- Step 4: Handle telescoping on RHS
+  have telescope_sum : ∑ i in Finset.range k,
+    (1/2 * ‖ippm.x i - xstar‖^2 - 1/2 * ‖ippm.x (i + 1) - xstar‖^2)
+    = 1/2 * ‖ippm.x 0 - xstar‖^2 - 1/2 * ‖ippm.x k - xstar‖^2 := by
+    -- Prove by induction
+    have h_telescoping : ∀ n : ℕ,
+      ∑ i in Finset.range n, (‖ippm.x i - xstar‖^2 - ‖ippm.x (i + 1) - xstar‖^2)
+      = ‖ippm.x 0 - xstar‖^2 - ‖ippm.x n - xstar‖^2 := by
+      intro n
+      induction n with
+      | zero =>
+        simp [Finset.range_zero]
+      | succ n ih =>
+        rw [Finset.sum_range_succ, ih]
+        ring
+    have := h_telescoping k
+    convert congr_arg (fun x => x / 2) this using 1
+    · simp only [Finset.sum_div]
+      congr 1 with i
+      ring
+    · ring
+
+  -- Step 5: Rearrange RHS using telescoping
+  have rhs_eq : ∑ i in Finset.range k,
+    (ippm.delta (i + 1) + 1/2 * ‖ippm.x i - xstar‖^2 - 1/2 * ‖ippm.x (i + 1) - xstar‖^2)
+    = ∑ i in Finset.range k, ippm.delta (i + 1) +
+      (1/2 * ‖ippm.x 0 - xstar‖^2 - 1/2 * ‖ippm.x k - xstar‖^2) := by
+    simp_rw [add_sub_assoc]
+    rw [Finset.sum_add_distrib, telescope_sum]
+
+  -- Step 6: Apply the rearrangements
+  rw [lhs_eq, rhs_eq] at sum_h
+
+  -- Step 7: Use x_init to substitute x₀ for ippm.x 0
+  have x0_eq : ippm.x 0 = x₀ := ippm.x_init
+  rw [x0_eq] at sum_h
+
+  linarith
+
+
+omit [CompleteSpace E] in
 -- Step 2: Drop the non-negative term and simplify
 lemma inexact_proximal_sum_bound (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
-    let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
     let xstar := x_star f f_min_exists
     ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar)
     ≤ ∑ i in Finset.range k, ippm.delta (i + 1) + 1/2 * ‖x₀ - xstar‖^2 := by
-  intro Λ xstar
+  intro xstar
   have h := inexact_proximal_sum_lemma2 ippm f_min_exists k
-  simp only [Λ, xstar] at h
+  simp only [xstar] at h
 
   -- Drop the non-negative second term and the negative term
   have drop_nonneg : ∑ i in Finset.range k, ((1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2) ≥ 0 := by
@@ -530,7 +582,9 @@ lemma inexact_proximal_sum_bound (ippm : InexactProximalPoint f f' σ x₀)
 
   linarith [h, drop_nonneg, drop_negative]
 
--- Step 3: Use convexity to relate f(x_hat) to the weighted average
+
+
+omit [CompleteSpace E] in
 lemma convex_weighted_average (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
@@ -539,15 +593,75 @@ lemma convex_weighted_average (ippm : InexactProximalPoint f f' σ x₀)
     let xstar := x_star f f_min_exists
     f x_hat - f xstar ≤
     (∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar)) / Λ := by
-    sorry
+  intro Λ x_hat xstar
 
--- Main theorem: Combine all steps
+  -- First establish that Λ > 0
+  have hΛ_pos : 0 < Λ := by
+    apply Finset.sum_pos
+    · intros i _
+      exact ippm.lam_pos (i + 1) (Nat.succ_pos i)
+    · use 0; simp [k.pos]
+
+  -- Rewrite division inequality as multiplication
+  rw [le_div_iff₀ hΛ_pos]
+
+  -- Expand: (f x_hat - f xstar) * Λ ≤ ∑ i, lam(i+1) * (f(x_tilde(i+1)) - f xstar)
+  rw [sub_mul]
+
+  -- Suffices to show: f x_hat * Λ ≤ ∑ i, lam(i+1) * f(x_tilde(i+1))
+  suffices f x_hat * Λ ≤ ∑ i in Finset.range k, ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) by
+    calc f x_hat * Λ - f xstar * Λ
+        ≤ ∑ i in Finset.range k, ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) - f xstar * Λ := by linarith [this]
+      _ = ∑ i in Finset.range k, ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) -
+          ∑ i in Finset.range k, ippm.lam (i + 1) * f xstar := by
+            rw [← Finset.sum_mul, mul_comm];
+      _ = ∑ i in Finset.range k, (ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) - ippm.lam (i + 1) * f xstar) := by
+            rw [← Finset.sum_sub_distrib]
+      _ = ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) := by
+            congr 1; ext i; ring
+
+  -- Use convexity: f is convex
+  have h_convex : ConvexOn ℝ univ f := ippm.fc
+
+  -- Apply Jensen's inequality for weighted averages
+  have h_jensen := ConvexOn.map_centerMass_le h_convex
+    (p := fun i => ippm.x_tilde (i + 1))
+    (fun i _ => le_of_lt (ippm.lam_pos (i + 1) (Nat.succ_pos i)))
+    hΛ_pos
+    (fun i _ => mem_univ _)
+
+  -- Simplify: centerMass is exactly x_hat, and extract the inequality we need
+  simp only [Finset.centerMass] at h_jensen
+
+  -- Multiply both sides by Λ and simplify
+  have key : Λ * f (Λ⁻¹ • ∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1)) ≤
+             ∑ i in Finset.range k, ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) := by
+    have h := mul_le_mul_of_nonneg_left h_jensen (le_of_lt hΛ_pos)
+    calc Λ * f (Λ⁻¹ • ∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
+        ≤ Λ * (Λ⁻¹ • ∑ i in Finset.range k, ippm.lam (i + 1) • (f (ippm.x_tilde (i + 1)))) := h
+      _ = Λ • (Λ⁻¹ • ∑ i in Finset.range k, ippm.lam (i + 1) • (f (ippm.x_tilde (i + 1)))) := by
+            simp [smul_eq_mul]
+      _ = (Λ * Λ⁻¹) • ∑ i in Finset.range k, ippm.lam (i + 1) • (f (ippm.x_tilde (i + 1))) := by
+            rw [smul_smul]
+      _ = ∑ i in Finset.range k, ippm.lam (i + 1) • (f (ippm.x_tilde (i + 1))) := by
+            rw [mul_inv_cancel₀ (ne_of_gt hΛ_pos), one_smul]
+      _ = ∑ i in Finset.range k, ippm.lam (i + 1) * f (ippm.x_tilde (i + 1)) := by
+            simp only [smul_eq_mul]
+
+  -- Rewrite to match goal: f x_hat * Λ = Λ * f x_hat
+  rw [mul_comm]
+  exact key
+
+
+-- theorem 2.2
+omit [CompleteSpace E] in
 theorem inexact_proximal_convergence_rate (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
     let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
     let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
     let xstar := x_star f f_min_exists
+    -- key convergence rate
     f x_hat - f xstar ≤ (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
   intro Λ x_hat xstar
 

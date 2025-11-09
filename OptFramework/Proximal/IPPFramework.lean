@@ -113,11 +113,12 @@ def proximal_gradient_is_IPP
   x := pgm.x
   x_tilde := pgm.x
   lam := λ k => if k = 0 then 1 else pgm.t
-  delta := λ k => 0
+  delta := λ _ => 0
   eps := λ k => if k = 0 then 0 else
     f (pgm.x k) - (f (pgm.x (k-1)) + inner (f' (pgm.x (k-1))) (pgm.x k - pgm.x (k-1)))
   σ_bound := hσ
   x_init := pgm.ori
+  fc := ConvexOn.add pgm.fconv pgm.hconv
   lam_pos := by
     intro k hk
     simp only [Nat.pos_iff_ne_zero] at hk

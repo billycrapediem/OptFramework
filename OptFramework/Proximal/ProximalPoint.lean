@@ -7,17 +7,17 @@ variable {x₀ xm : E} {f : E → ℝ} {f' : E → E} {t : ℝ}
 
 open Set Finset
 
+section Proximal_Point
+
 noncomputable def f_star (f : E → ℝ) : ℝ := sInf (f '' univ)
 
 variable (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
 
+
 class ProximalPoint (f : E → ℝ) (f' : E → E) (t : ℝ) (x₀ : E) where
   x : ℕ → E
-  m : ℝ
   diff : ∀ x₁ : E, HasGradientAt f (f' x₁) x₁
-  fsc : StrongConvexOn univ m f
   fc: ConvexOn ℝ univ f
-  m_pos : 0 < m
   t_pos : 0 < t
   x_init : x 0 = x₀
   update : ∀ k : ℕ, prox_prop (t • f) (x k) (x (k + 1))
@@ -143,7 +143,7 @@ lemma proximal_sum_inequality (ppm : ProximalPoint f f' t x₀) (k : ℕ+)
     linarith
 
   calc (k : ℝ) * (f (ppm.x k) - f x_star)
-      = ∑ i in Finset.range k, (f (ppm.x k) - f x_star) := by
+      = ∑ _i in Finset.range k, (f (ppm.x k) - f x_star) := by
           rw [Finset.sum_const, Finset.card_range]
           simp
     _ ≤ ∑ i in Finset.range k, (f (ppm.x (i + 1)) - f x_star) := by
@@ -206,3 +206,5 @@ theorem proximal_method_convergence_rate : ∀ (k : ℕ+),
   convert div_result using 1
   field_simp
   ring
+
+end Proximal_Point
