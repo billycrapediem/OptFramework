@@ -2,14 +2,14 @@ import Optlib.Function.Lsmooth
 import Optlib.Function.Proximal
 import Optlib.Convex.StronglyConvex
 
+namespace ProxPoint
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
 variable {x₀ xm : E} {f : E → ℝ} {f' : E → E} {t : ℝ}
 
 open Set Finset
 
 section Proximal_Point
-
-noncomputable def f_star (f : E → ℝ) : ℝ := sInf (f '' univ)
 
 variable (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
 
@@ -24,7 +24,7 @@ class ProximalPoint (f : E → ℝ) (f' : E → E) (t : ℝ) (x₀ : E) where
 
 variable (ppm : ProximalPoint f f' t x₀)
 
-noncomputable def x_star (f : E → ℝ) (h : ∃ x : E, IsMinOn f univ x) : E :=
+protected noncomputable def x_star (f : E → ℝ) (h : ∃ x : E, IsMinOn f univ x) : E :=
   Classical.choose h
 
 lemma proximal_three_point_identity (ppm : ProximalPoint f f' t x₀) (k : ℕ) (x : E) :
@@ -192,10 +192,10 @@ lemma proximal_combined_bound (ppm : ProximalPoint f f' t x₀) (k : ℕ+)
   exact le_trans intermediate drop_negative
 
 theorem proximal_method_convergence_rate : ∀ (k : ℕ+),
-    f (ppm.x k) - f (x_star f f_min_exists) ≤
-    1 / (2 * (k : ℝ) * t) * ‖x₀ - x_star f f_min_exists‖ ^ 2 := by
+    f (ppm.x k) - f (ProxPoint.x_star f f_min_exists) ≤
+    1 / (2 * (k : ℝ) * t) * ‖x₀ - ProxPoint.x_star f f_min_exists‖ ^ 2 := by
   intro k
-  let x_star := x_star f f_min_exists
+  let x_star := ProxPoint.x_star f f_min_exists
   have final_bound := proximal_combined_bound ppm k x_star
   have pos_k : (0 : ℝ) < k := by
     exact Nat.cast_pos.mpr k.pos
@@ -208,3 +208,5 @@ theorem proximal_method_convergence_rate : ∀ (k : ℕ+),
   ring
 
 end Proximal_Point
+
+end ProxPoint

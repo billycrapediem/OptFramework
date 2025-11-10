@@ -1,16 +1,16 @@
 import Optlib.Function.Lsmooth
 
+namespace InexactProximal
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
 variable {x₀ xm : E} {f : E → ℝ} {f' : E → E} {σ : ℝ}
 
 open Set Finset
 
-noncomputable def f_star (f : E → ℝ) : ℝ := sInf (f '' univ)
-
-noncomputable def x_star (f : E → ℝ) (h : ∃ x_star : E, IsMinOn f univ x_star) : E :=
+noncomputable def x_star (f : E → ℝ) (h : ∃ x : E, IsMinOn f univ x) : E :=
   Classical.choose h
 
-variable (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
+variable (f_min_exists : ∃ x : E, IsMinOn f univ x)
 
 def EpsSubderivAt (f : E → ℝ) (x : E) (ε : ℝ) : Set E :=
   {g | ∀ y, f y ≥ f x + inner g (y - x) - ε}
@@ -451,11 +451,11 @@ omit [CompleteSpace E] in
 theorem inexact_proximal_lemma2 (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ) (hk : k > 0) :
-    ippm.lam k * (f (ippm.x_tilde k) - f (x_star f f_min_exists)) +
+    ippm.lam k * (f (ippm.x_tilde k) - f (InexactProximal.x_star f f_min_exists)) +
     (1 - σ) / 2 * ‖ippm.x_tilde k - ippm.x (k - 1)‖^2
-    ≤ ippm.delta k + 1/2 * ‖ippm.x (k - 1) - x_star f f_min_exists‖^2 -
-      1/2 * ‖ippm.x k - x_star f f_min_exists‖^2 := by
-  let xstar := x_star f f_min_exists
+    ≤ ippm.delta k + 1/2 * ‖ippm.x (k - 1) - InexactProximal.x_star f f_min_exists‖^2 -
+      1/2 * ‖ippm.x k - InexactProximal.x_star f f_min_exists‖^2 := by
+  let xstar := InexactProximal.x_star f f_min_exists
 
   have three_pt := three_point_inequality_with_minimum ippm k hk xstar
   calc ippm.lam k * (f (ippm.x_tilde k) - f xstar) +
@@ -475,12 +475,12 @@ omit [CompleteSpace E] in
 lemma inexact_proximal_sum_lemma2 (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
-    let xstar := x_star f f_min_exists
+    let xstar := InexactProximal.x_star f f_min_exists
     ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar) +
     ∑ i in Finset.range k, ((1 - σ) / 2 * ‖ippm.x_tilde (i + 1) - ippm.x i‖^2)
     ≤ ∑ i in Finset.range k, ippm.delta (i + 1) +
       1/2 * ‖x₀ - xstar‖^2 - 1/2 * ‖ippm.x k - xstar‖^2 := by
-  let xstar := x_star f f_min_exists
+  let xstar := InexactProximal.x_star f f_min_exists
 
   -- Step 1: Apply lemma2 to each term
   have h : ∀ i : ℕ, i < k →
@@ -554,7 +554,7 @@ omit [CompleteSpace E] in
 lemma inexact_proximal_sum_bound (ippm : InexactProximalPoint f f' σ x₀)
     (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
     (k : ℕ+) :
-    let xstar := x_star f f_min_exists
+    let xstar := InexactProximal.x_star f f_min_exists
     ∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar)
     ≤ ∑ i in Finset.range k, ippm.delta (i + 1) + 1/2 * ‖x₀ - xstar‖^2 := by
   intro xstar
@@ -590,7 +590,7 @@ lemma convex_weighted_average (ippm : InexactProximalPoint f f' σ x₀)
     (k : ℕ+) :
     let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
     let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
-    let xstar := x_star f f_min_exists
+    let xstar := InexactProximal.x_star f f_min_exists
     f x_hat - f xstar ≤
     (∑ i in Finset.range k, ippm.lam (i + 1) * (f (ippm.x_tilde (i + 1)) - f xstar)) / Λ := by
   intro Λ x_hat xstar
@@ -660,7 +660,7 @@ theorem inexact_proximal_convergence_rate (ippm : InexactProximalPoint f f' σ x
     (k : ℕ+) :
     let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
     let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
-    let xstar := x_star f f_min_exists
+    let xstar := InexactProximal.x_star f f_min_exists
     -- key convergence rate
     f x_hat - f xstar ≤ (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
   intro Λ x_hat xstar
@@ -694,3 +694,5 @@ theorem inexact_proximal_convergence_rate (ippm : InexactProximalPoint f f' σ x
     _ = (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
           congr 1
           field_simp
+
+end InexactProximal

@@ -4,10 +4,12 @@ import Optlib.Convex.StronglyConvex
 import Optlib.Algorithm.ProximalGradient
 import OptFramework.Proximal.InexactProximal
 
+namespace IPPFramework
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
 variable {x₀ xm : E} {f : E → ℝ} {f' : E → E} {σ : ℝ}
 
-open Set Finset
+open Set Finset InexactProximal
 
 lemma linearization_upper_bound (f : E → ℝ) (f' : E → E)
     (hf : ∀ x : E, HasGradientAt f (f' x) x)
@@ -194,8 +196,10 @@ theorem proximal_gradient_convergence_rate
   let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep
   let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
   let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
-  let xstar := x_star ϕ f_min_exists
+  let xstar := InexactProximal.x_star ϕ f_min_exists
   ϕ x_hat - ϕ xstar ≤ (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
   let ippm := proximal_gradient_is_IPP f h f' x₀ σ pgm hσ hstep
   -- Apply the general IPP convergence theorem directly
   exact inexact_proximal_convergence_rate ippm f_min_exists k
+
+end IPPFramework
