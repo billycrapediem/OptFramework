@@ -10,7 +10,6 @@ open Set Finset
 noncomputable def x_star (f : E → ℝ) (h : ∃ x : E, IsMinOn f univ x) : E :=
   Classical.choose h
 
-variable (f_min_exists : ∃ x : E, IsMinOn f univ x)
 
 def EpsSubderivAt (f : E → ℝ) (x : E) (ε : ℝ) : Set E :=
   {g | ∀ y, f y ≥ f x + inner g (y - x) - ε}
@@ -31,8 +30,6 @@ class InexactProximalPoint (f : E → ℝ) (f' : E → E) (σ : ℝ) (x₀ : E) 
   prox_cond : ∀ k : ℕ, k > 0 →
     ‖x k - x_tilde k‖^2 + 2 * lam k * eps k ≤
     σ * ‖x_tilde k - x (k - 1)‖^2 + 2 * delta k
-
-variable (ippm : InexactProximalPoint f f' σ x₀)
 
 noncomputable def v (ippm : InexactProximalPoint f f' σ x₀) (k : ℕ) : E :=
   (ippm.lam k)⁻¹ • (ippm.x (k - 1) - ippm.x k)
@@ -656,14 +653,15 @@ lemma convex_weighted_average (ippm : InexactProximalPoint f f' σ x₀)
 -- theorem 2.2
 omit [CompleteSpace E] in
 theorem inexact_proximal_convergence_rate (ippm : InexactProximalPoint f f' σ x₀)
-    (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star)
-    (k : ℕ+) :
-    let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
-    let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
-    let xstar := InexactProximal.x_star f f_min_exists
-    -- key convergence rate
-    f x_hat - f xstar ≤ (∑ i in Finset.range k, ippm.delta (i + 1)) / Λ + ‖x₀ - xstar‖^2 / (2 * Λ) := by
-  intro Λ x_hat xstar
+    (f_min_exists : ∃ x_star : E, IsMinOn f univ x_star) : ∀ (k : ℕ+),
+    f ((∑ i in Finset.range k, ippm.lam (i + 1))⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1)))
+      - f (InexactProximal.x_star f f_min_exists) ≤
+    (∑ i in Finset.range k, ippm.delta (i + 1)) / (∑ i in Finset.range k, ippm.lam (i + 1)) +
+    ‖x₀ - InexactProximal.x_star f f_min_exists‖^2 / (2 * (∑ i in Finset.range k, ippm.lam (i + 1))) := by
+  intro k
+  let Λ := ∑ i in Finset.range k, ippm.lam (i + 1)
+  let x_hat := Λ⁻¹ • (∑ i in Finset.range k, ippm.lam (i + 1) • ippm.x_tilde (i + 1))
+  let xstar := InexactProximal.x_star f f_min_exists
 
   -- Get bound on weighted average of function values
   have step1 := convex_weighted_average ippm f_min_exists k

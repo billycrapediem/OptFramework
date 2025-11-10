@@ -1,3 +1,4 @@
 import OptFramework.Proximal.InexactProximal
 import OptFramework.Proximal.ProximalPoint
 import OptFramework.Proximal.IPPFramework
+import OptFramework.Proximal.GeneralizedProximalPoint
