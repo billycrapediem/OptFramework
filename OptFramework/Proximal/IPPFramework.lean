@@ -35,7 +35,6 @@ lemma proximal_gradient_subdifferential (f h : E → ℝ) (f' : E → E)
   -- Get the proximal update condition
   have prox := pgm.update (k-1)
   -- This states: prox_prop (pgm.t • h) (pgm.x (k-1) - pgm.t • f' (pgm.x (k-1))) (pgm.x k)
-
   -- Simplify k - 1 + 1 to k
   have : k - 1 + 1 = k := Nat.sub_add_cancel hk
   simp only [this] at prox
