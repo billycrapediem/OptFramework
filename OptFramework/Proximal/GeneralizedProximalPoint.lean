@@ -1,12 +1,8 @@
 
 import Optlib.Function.Lsmooth
-
+import OptFramework.Proximal.GeneralizedInexactProximalPoint
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
 /-- A monotone operator from E to subsets of E -/
-structure MonotoneOperator (E : Type*) [NormedAddCommGroup E] [InnerProductSpace ℝ E] where
-  Operator : E → Set E
-  /-- Monotonicity condition: ⟨x - y, v - w⟩ ≥ 0 for all (x,v), (y,w) in the graph -/
-  monotone : ∀ x y v w : E, v ∈ Operator x → w ∈ Operator y → inner (x - y) (v - w) ≥ (0 : ℝ)
 
 
 class GeneralizedProximalPoint

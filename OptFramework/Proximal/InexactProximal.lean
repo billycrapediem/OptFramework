@@ -172,6 +172,7 @@ lemma gradient_zero_at_iterate (ippm : InexactProximalPoint f f' σ x₀) (k : �
   have lam_ne_zero : ippm.lam k ≠ 0 := ne_of_gt (ippm.lam_pos k hk)
   rw [smul_smul, mul_inv_cancel₀ lam_ne_zero, one_smul]
   abel
+
 omit [CompleteSpace E] in
 lemma inexact_proximal_minimizer (ippm : InexactProximalPoint f f' σ x₀) (k : ℕ)
     (hk : k > 0) :
