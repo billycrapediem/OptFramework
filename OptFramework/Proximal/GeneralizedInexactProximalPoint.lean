@@ -20,25 +20,15 @@ def EpsEnlargement (T : MonotoneOperator E) (ε : ℝ) (x_tilde : E) : Set E :=
 
 
 class GeneralizedInexactProximalPoint (T : MonotoneOperator E) (σ : ℝ) (x₀ : E) where
-  /-- The iterate sequence xₖ -/
   x : ℕ → E
-  /-- The approximate point x̃ₖ -/
   x_tilde : ℕ → E
-  /-- The stepsize sequence λₖ -/
   lam : ℕ → ℝ
-  /-- The error sequence δₖ -/
   delta : ℕ → ℝ
-  /-- The tolerance sequence εₖ -/
   eps : ℕ → ℝ
-  /-- σ is in (0,1) -/
   σ_bound : 0 < σ ∧ σ < 1
-  /-- Initial condition x₀ -/
   x_init : x 0 = x₀
-  /-- Stepsizes are positive -/
   lam_pos : ∀ k : ℕ, k > 0 → 0 < lam k
-  /-- Errors are non-negative -/
   delta_nonneg : ∀ k : ℕ, k > 0 → 0 ≤ delta k
-  /-- Tolerances are non-negative -/
   eps_nonneg : ∀ k : ℕ, k > 0 → 0 ≤ eps k
   /-- Condition: (xₖ₋₁ - xₖ)/λₖ ∈ T^εₖ(x̃ₖ)
       This means vₖ is in the ε-enlargement of T at x̃ₖ,
@@ -375,45 +365,344 @@ lemma theta_bound {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
 /-- Step 1: Basic inequality from Lemma 5(a) and Lemma 6 combined
     For each iteration k, we have:
     (1-σ)/2 ‖x̃ₖ - xₖ₋₁‖² ≤ 1/2 ‖x* - xₖ₋₁‖² - 1/2 ‖x* - xₖ‖² -/
+lemma gamma_at_solution_nonpositive {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
+    (gipp : GeneralizedInexactProximalPoint T σ x₀)
+    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star) :
+    Gamma_general gipp k x_star ≤ 0 := by
+  -- Use gamma_lower_bound with v = 0
+  have lower := gamma_lower_bound gipp k hk x_star 0 h_sol
+  unfold Gamma_general at lower ⊢
+  -- From lower bound: inner (v_general gipp k) (x_star - gipp.x_tilde k) - gipp.eps k ≤
+  --                   inner (v_general gipp k) (x_star - gipp.x_tilde k)
+  -- This simplifies to: -gipp.eps k ≤ 0
+  -- From the EpsEnlargement definition with v = 0:
+  -- inner (gipp.x_tilde k - x_star) (v_general gipp k - 0) ≥ -gipp.eps k
+  have enlarge := gipp.eps_enlargement_cond k hk
+  unfold EpsEnlargement at enlarge
+  simp at enlarge
+  have := enlarge x_star 0 h_sol
+  -- This gives: inner (v_general gipp k) (gipp.x_tilde k - x_star) ≥ -gipp.eps k
+  -- Which means: inner (v_general gipp k) (x_star - gipp.x_tilde k) ≤ gipp.eps k
+  have : inner (v_general gipp k) (x_star - gipp.x_tilde k) ≤ gipp.eps k := by
+    have h1 : inner (gipp.x_tilde k - x_star) (v_general gipp k) ≥ -gipp.eps k := by
+      unfold v_general
+      simpa using enlarge x_star 0 h_sol
+    rw [real_inner_comm] at h1
+    have h2 : inner (v_general gipp k) (gipp.x_tilde k - x_star) ≥ -gipp.eps k := h1
+    have h3 : -inner (v_general gipp k) (x_star - gipp.x_tilde k) ≥ -gipp.eps k := by
+      have : gipp.x_tilde k - x_star = -(x_star - gipp.x_tilde k) := by abel
+      rw [this, inner_neg_right] at h2
+      exact h2
+    linarith
+  linarith
+
 lemma theorem4_step1 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E) (hsmooth : gipp.delta k = 0) :
+    (k : ℕ) (hk : k > 0) (x_star : E) (hsmooth : gipp.delta k = 0)
+    (h_sol : (0 : E) ∈ T.Operator x_star) :
     (1 - σ) / 2 * ‖gipp.x_tilde k - gipp.x (k - 1)‖^2 ≤
     1/2 * ‖x_star - gipp.x (k - 1)‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := by
-  sorry
+  -- Apply lemma6 with delta_k = 0
+  have lem6 := lemma6 gipp k hk x_star
+  rw [hsmooth] at lem6
+  simp at lem6
+
+  -- Show that Gamma_general gipp k x_star ≤ 0
+  have gamma_nonpos := gamma_at_solution_nonpositive gipp k hk x_star h_sol
+
+  -- Since λk > 0 and Gamma_general gipp k x_star ≤ 0
+  have lam_pos := gipp.lam_pos k hk
+  have : -gipp.lam k * Gamma_general gipp k x_star ≥ 0 := by
+    have : gipp.lam k * Gamma_general gipp k x_star ≤ 0 := mul_nonpos_of_nonneg_of_nonpos (le_of_lt lam_pos) gamma_nonpos
+    linarith
+
+  -- From lemma6: -λk Γk(x*) + (1-σ)/2 ‖x̃k - xk-1‖² ≤ ½‖x* - xk-1‖² - ½‖x* - xk‖²
+  -- Since -λk Γk(x*) ≥ 0, we get the desired result
+  linarith
 
 /-- Step 2: Telescoping sum inequality
     Summing the basic inequality over k iterations:
     (1-σ)/2 ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² ≤ 1/2 ‖x₀ - x*‖² - 1/2 ‖xₖ - x*‖² -/
 lemma theorem4_step2 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E)
+    (k : ℕ) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     (1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
     1/2 * ‖x₀ - x_star‖^2 - 1/2 * ‖gipp.x k - x_star‖^2 := by
-  sorry
+
+  -- Step 1: Apply lemma6 to each iteration with delta = 0
+  have h : ∀ i : ℕ, i < k →
+    -gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star +
+    (1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
+    1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2 := by
+    intro i hi
+    have pos_idx : 0 < i + 1 := by omega
+    have le_k : i + 1 ≤ k := by omega
+    have delta_eq := hsmooth (i + 1) pos_idx le_k
+    have lem6 := lemma6 gipp (i + 1) pos_idx x_star
+    rw [delta_eq] at lem6
+    simp only [Nat.add_sub_cancel] at lem6
+    linarith
+
+  -- Step 2: Sum both sides
+  have sum_h : ∑ i in Finset.range k,
+    (-gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star +
+    (1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) ≤
+    ∑ i in Finset.range k,
+    (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) := by
+    apply Finset.sum_le_sum
+    intro i hi
+    exact h i (Finset.mem_range.mp hi)
+
+  -- Step 3: Split the LHS
+  have lhs_split : ∑ i in Finset.range k,
+    (-gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star +
+    (1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) =
+    ∑ i in Finset.range k, (-gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star) +
+    ∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) :=
+    Finset.sum_add_distrib
+
+  -- Step 4: Telescoping sum on RHS
+  have telescope : ∑ i in Finset.range k,
+    (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) =
+    1/2 * ‖x_star - gipp.x 0‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := by
+    have h_tele : ∀ n : ℕ,
+      ∑ i in Finset.range n, (‖x_star - gipp.x i‖^2 - ‖x_star - gipp.x (i + 1)‖^2) =
+      ‖x_star - gipp.x 0‖^2 - ‖x_star - gipp.x n‖^2 := by
+      intro n
+      induction n with
+      | zero => simp
+      | succ n ih => rw [Finset.sum_range_succ, ih]; ring
+    convert congr_arg (· / 2) (h_tele k) using 1
+    · simp only [Finset.sum_div]; congr 1 with i; ring
+    · ring
+
+  -- Apply the simplifications
+  rw [lhs_split, telescope] at sum_h
+
+  -- Use x_init
+  have : gipp.x 0 = x₀ := gipp.x_init
+  rw [this] at sum_h
+
+  -- Show that the Gamma sum is non-positive
+  have gamma_sum_nonpos : ∑ i in Finset.range k, -gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star ≥ 0 := by
+    apply Finset.sum_nonneg
+    intro i hi
+    have pos_idx : 0 < i + 1 := by omega
+    have gamma_nonpos := gamma_at_solution_nonpositive gipp (i + 1) pos_idx x_star h_sol
+    have lam_pos := gipp.lam_pos (i + 1) pos_idx
+    have : gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star ≤ 0 :=
+      mul_nonpos_of_nonneg_of_nonpos (le_of_lt lam_pos) gamma_nonpos
+    linarith
+
+  have norm_sym1 : ‖x₀ - x_star‖^2 = ‖x_star - x₀‖^2 := by rw [norm_sub_rev]
+  have norm_sym2 : ‖gipp.x k - x_star‖^2 = ‖x_star - gipp.x k‖^2 := by rw [norm_sub_rev]
+
+  -- Apply the bound, dropping the non-positive Gamma sum
+  calc (1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2
+      = ∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) := by
+          rw [Finset.mul_sum]
+    _ ≤ ∑ i in Finset.range k, (-gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star) +
+        ∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) := by
+          linarith [gamma_sum_nonpos]
+    _ ≤ 1/2 * ‖x_star - x₀‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := sum_h
+    _ = 1/2 * ‖x₀ - x_star‖^2 - 1/2 * ‖gipp.x k - x_star‖^2 := by
+          rw [norm_sym1, norm_sym2]
 
 /-- Step 3: Drop the negative term
     Since ‖xₖ - x*‖² ≥ 0, we can strengthen the bound:
     (1-σ)/2 ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² ≤ 1/2 ‖x₀ - x*‖² -/
 lemma theorem4_step3 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E)
+    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     (1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
     1/2 * ‖x₀ - x_star‖^2 := by
-  sorry
+
+  -- Step 1: Use that Gamma_general is nonpositive at the solution
+  have gamma_nonpos : ∀ i : ℕ, 0 < i → i ≤ k →
+      Gamma_general gipp i x_star ≤ 0 := by
+    intro i hi hik
+    exact gamma_at_solution_nonpositive gipp i hi x_star h_sol
+
+  -- Step 2: Apply lemma6 to each iteration
+  have h : ∀ i : ℕ, 0 < i → i ≤ k →
+      (1 - σ) / 2 * ‖gipp.x_tilde i - gipp.x (i - 1)‖^2 ≤
+      gipp.delta i + 1/2 * ‖x_star - gipp.x (i - 1)‖^2 -
+      1/2 * ‖x_star - gipp.x i‖^2 + gipp.lam i * Gamma_general gipp i x_star := by
+    intro i hi hik
+    have lem := lemma6 gipp i hi x_star
+    linarith
+
+  -- Step 3: Apply smoothness condition and gamma nonpositivity
+  have h' : ∀ i : ℕ, 0 < i → i ≤ k →
+      (1 - σ) / 2 * ‖gipp.x_tilde i - gipp.x (i - 1)‖^2 ≤
+      1/2 * ‖x_star - gipp.x (i - 1)‖^2 - 1/2 * ‖x_star - gipp.x i‖^2 := by
+    intro i hi hik
+    have hi_bounds := h i hi hik
+    have delta_zero := hsmooth i hi hik
+    have gamma_np := gamma_nonpos i hi hik
+    have lam_pos := gipp.lam_pos i hi
+    calc (1 - σ) / 2 * ‖gipp.x_tilde i - gipp.x (i - 1)‖^2
+        ≤ gipp.delta i + 1/2 * ‖x_star - gipp.x (i - 1)‖^2 -
+          1/2 * ‖x_star - gipp.x i‖^2 + gipp.lam i * Gamma_general gipp i x_star := hi_bounds
+      _ = 0 + 1/2 * ‖x_star - gipp.x (i - 1)‖^2 -
+          1/2 * ‖x_star - gipp.x i‖^2 + gipp.lam i * Gamma_general gipp i x_star := by
+            rw [delta_zero]
+      _ ≤ 1/2 * ‖x_star - gipp.x (i - 1)‖^2 - 1/2 * ‖x_star - gipp.x i‖^2 := by
+            have : gipp.lam i * Gamma_general gipp i x_star ≤ 0 :=
+              mul_nonpos_of_nonneg_of_nonpos (le_of_lt lam_pos) gamma_np
+            linarith [this]
+
+  -- Step 4: Sum over all iterations
+  have sum_ineq : ∑ i in Finset.range k,
+      ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) ≤
+      ∑ i in Finset.range k,
+      (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) := by
+    apply Finset.sum_le_sum
+    intro i hi
+    have i_pos : 0 < i + 1 := Nat.succ_pos i
+    have i_le : i + 1 ≤ k := by
+      have : i < k := Finset.mem_range.mp hi
+      omega
+    exact h' (i + 1) i_pos i_le
+
+  -- Step 5: Simplify LHS
+  have lhs_eq : (1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 =
+      ∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) := by
+    rw [Finset.mul_sum]
+
+  -- Step 6: Telescope the RHS
+  have telescope : ∑ i in Finset.range k,
+      (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) =
+      1/2 * ‖x_star - gipp.x 0‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := by
+    have h_telescoping : ∀ n : ℕ,
+      ∑ i in Finset.range n, (‖x_star - gipp.x i‖^2 - ‖x_star - gipp.x (i + 1)‖^2)
+      = ‖x_star - gipp.x 0‖^2 - ‖x_star - gipp.x n‖^2 := by
+      intro n
+      induction n with
+      | zero => simp [Finset.range_zero]
+      | succ n ih =>
+        rw [Finset.sum_range_succ, ih]
+        ring
+    have := h_telescoping k
+    convert congr_arg (fun x => x / 2) this using 1
+    · simp only [Finset.sum_div]
+      congr 1 with i
+      ring
+    · ring
+
+  -- Step 7: Combine and use x_init
+  rw [lhs_eq]
+  calc ∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2)
+      ≤ ∑ i in Finset.range k,
+        (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) := sum_ineq
+    _ = 1/2 * ‖x_star - gipp.x 0‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := telescope
+    _ ≤ 1/2 * ‖x_star - gipp.x 0‖^2 := by linarith [sq_nonneg ‖x_star - gipp.x k‖]
+    _ = 1/2 * ‖x_star - x₀‖^2 := by rw [gipp.x_init]
+    _ = 1/2 * ‖x₀ - x_star‖^2 := by rw [norm_sub_rev]
 
 /-- Step 4: Rearrange to get sum bound
     ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² ≤ ‖x₀ - x*‖²/(1-σ) -/
 lemma theorem4_step4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E)
+    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
     ‖x₀ - x_star‖^2 / (1 - σ) := by
-  sorry
 
+  -- Step 1: Apply lemma6 to each iteration
+  have h_each : ∀ i : ℕ, i < k →
+    -gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star +
+    (1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
+    gipp.delta (i + 1) + 1/2 * ‖x_star - gipp.x i‖^2 -
+    1/2 * ‖x_star - gipp.x (i + 1)‖^2 := by
+    intro i hi
+    have hi_pos : 0 < i + 1 := Nat.succ_pos i
+    exact lemma6 gipp (i + 1) hi_pos x_star
+
+  -- Step 2: Since 0 ∈ T(x_star), we have Gamma_general(x_star) ≤ 0
+  have gamma_nonpos : ∀ i : ℕ, 0 < i → i ≤ k →
+    Gamma_general gipp i x_star ≤ 0 := by
+    intro i hi_pos hi_le
+    exact gamma_at_solution_nonpositive gipp i hi_pos x_star h_sol
+
+  -- Step 3: Simplify with delta_i = 0 and Gamma ≤ 0
+  have h_simplified : ∀ i : ℕ, i < k →
+    (1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
+    1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2 := by
+    intro i hi
+    have hi_pos : 0 < i + 1 := Nat.succ_pos i
+    have hi_le : i + 1 ≤ k := Nat.succ_le_of_lt hi
+    have delta_zero := hsmooth (i + 1) hi_pos hi_le
+    have gamma_np := gamma_nonpos (i + 1) hi_pos hi_le
+    have lam_pos := gipp.lam_pos (i + 1) hi_pos
+    have from_lemma6 := h_each i hi
+    rw [delta_zero] at from_lemma6
+    have : -gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star ≥ 0 := by
+      have : gipp.lam (i + 1) * Gamma_general gipp (i + 1) x_star ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos (le_of_lt lam_pos) gamma_np
+      linarith
+    linarith
+
+  -- Step 4: Sum both sides
+  have sum_ineq : ∑ i in Finset.range k,
+    ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) ≤
+    ∑ i in Finset.range k,
+    (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2) := by
+    apply Finset.sum_le_sum
+    intro i hi
+    exact h_simplified i (Finset.mem_range.mp hi)
+
+  -- Step 5: Telescoping sum on RHS
+  have telescope : ∑ i in Finset.range k,
+    (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2)
+    = 1/2 * ‖x_star - gipp.x 0‖^2 - 1/2 * ‖x_star - gipp.x k‖^2 := by
+    have h_telescoping : ∀ n : ℕ,
+      ∑ i in Finset.range n, (‖x_star - gipp.x i‖^2 - ‖x_star - gipp.x (i + 1)‖^2)
+      = ‖x_star - gipp.x 0‖^2 - ‖x_star - gipp.x n‖^2 := by
+      intro n
+      induction n with
+      | zero => simp [Finset.range_zero]
+      | succ n ih =>
+        rw [Finset.sum_range_succ, ih]
+        ring
+    have := h_telescoping k
+    convert congr_arg (fun x => x / 2) this using 1
+    · simp only [Finset.sum_div]
+      congr 1 with i
+      ring
+    · ring
+
+  -- Step 6: Use x_init
+  have x0_eq : gipp.x 0 = x₀ := gipp.x_init
+  rw [x0_eq] at telescope
+
+  -- Step 7: Combine and rearrange
+  have σ_bounds := gipp.σ_bound
+  have σ_ne : 1 - σ ≠ 0 := by linarith
+  calc ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2
+      = (2 / (1 - σ)) * ((1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2) := by
+          field_simp [σ_ne]
+          ring
+    _ = (2 / (1 - σ)) * (∑ i in Finset.range k, ((1 - σ) / 2 * ‖gipp.x_tilde (i + 1) - gipp.x i‖^2)) := by
+          rw [Finset.mul_sum]
+    _ ≤ (2 / (1 - σ)) * (∑ i in Finset.range k,
+          (1/2 * ‖x_star - gipp.x i‖^2 - 1/2 * ‖x_star - gipp.x (i + 1)‖^2)) := by
+          apply mul_le_mul_of_nonneg_left sum_ineq
+          apply div_nonneg
+          · norm_num
+          · linarith
+    _ = (2 / (1 - σ)) * (1/2 * ‖x₀ - x_star‖^2 - 1/2 * ‖x_star - gipp.x k‖^2) := by
+          rw [telescope, norm_sub_rev]
+    _ ≤ (2 / (1 - σ)) * (1/2 * ‖x₀ - x_star‖^2) := by
+          apply mul_le_mul_of_nonneg_left
+          · have : 0 ≤ 1/2 * ‖x_star - gipp.x k‖^2 := by positivity
+            linarith
+          · apply div_nonneg; norm_num; linarith
+    _ = ‖x₀ - x_star‖^2 / (1 - σ) := by
+          field_simp
+          ring
 /-- Step 5: Apply Lemma 7 (theta_bound) to get theta sum bound
     ∑ᵢ₌₁ᵏ θᵢ ≤ ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² -/
 lemma theorem4_step5 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
@@ -466,7 +755,7 @@ lemma theorem4_step9_vnorm {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     ‖vᵢ‖² ≤ (1+√σ)²‖x₀ - x*‖²/(λᵢ²(1-σ)k) -/
 theorem theorem4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E)
+    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     (⨅ i ∈ Finset.range k, theta gipp (i + 1)) ≤ ‖x₀ - x_star‖^2 / ((1 - σ) * k) ∧
     ∃ i ∈ Finset.range k,
@@ -478,7 +767,7 @@ theorem theorem4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
   have min_theta_bound : (⨅ i ∈ Finset.range k, theta gipp (i + 1)) ≤
       ‖x₀ - x_star‖^2 / ((1 - σ) * k) := by
     -- Step 4: Get sum bound on norms
-    have sum_norm_bound := theorem4_step4 gipp k hk x_star hsmooth
+    have sum_norm_bound := theorem4_step4 gipp k hk x_star h_sol hsmooth
 
     -- Step 5: Apply theta_bound lemma to bound sum of thetas
     have sum_theta_bound := theorem4_step5 gipp k hk hsmooth
