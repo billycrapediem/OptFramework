@@ -2,7 +2,7 @@ import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.Convex.Basic
 import Mathlib.Topology.MetricSpace.Basic
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
 
 open Set InnerProductSpace Finset
 
@@ -62,7 +62,7 @@ noncomputable def Gamma_general {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
   inner (v_general gipp k) (x - gipp.x_tilde k) - gipp.eps k
 
 
-omit [CompleteSpace E] in
+
 /-- Lemma 5(a): For all x, we have Γₖ(x) provides a lower bound based on the ε-enlargement.
     This follows directly from the definition of ε-enlargement. -/
 lemma gamma_lower_bound {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
@@ -79,7 +79,6 @@ lemma gamma_lower_bound {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
 
 
 
-omit [CompleteSpace E] in
 lemma lemma6_key_decomp {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀) (k : ℕ) (hk : k > 0) (x : E) :
     gipp.lam k * Gamma_general gipp k x + 1/2 * ‖x - gipp.x (k - 1)‖^2 =
@@ -514,7 +513,7 @@ lemma theorem4_step2 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (1-σ)/2 ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² ≤ 1/2 ‖x₀ - x*‖² -/
 lemma theorem4_step3 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
+    (k : ℕ) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     (1 - σ) / 2 * ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
     1/2 * ‖x₀ - x_star‖^2 := by
@@ -606,7 +605,7 @@ lemma theorem4_step3 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² ≤ ‖x₀ - x*‖²/(1-σ) -/
 lemma theorem4_step4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
+    (k : ℕ) (x_star : E) (h_sol : (0 : E) ∈ T.Operator x_star)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 ≤
     ‖x₀ - x_star‖^2 / (1 - σ) := by
@@ -707,11 +706,19 @@ lemma theorem4_step4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     ∑ᵢ₌₁ᵏ θᵢ ≤ ∑ᵢ₌₁ᵏ ‖x̃ᵢ - xᵢ₋₁‖² -/
 lemma theorem4_step5 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
-    (k : ℕ) (hk : k > 0)
+    (k : ℕ)
     (hsmooth : ∀ i : ℕ, 0 < i → i ≤ k → gipp.delta i = 0) :
     ∑ i in Finset.range k, theta gipp (i + 1) ≤
     ∑ i in Finset.range k, ‖gipp.x_tilde (i + 1) - gipp.x i‖^2 := by
-  sorry
+  apply Finset.sum_le_sum
+  intro i hi
+  have h_idx : i < k := Finset.mem_range.mp hi
+  have h_pos : 0 < i + 1 := Nat.succ_pos i
+  have h_le : i + 1 ≤ k := Nat.succ_le_of_lt h_idx
+  have h_delta : gipp.delta (i + 1) = 0 := hsmooth (i + 1) h_pos h_le
+  have bound := theta_bound gipp (i + 1) h_pos h_delta
+  rw [Nat.add_sub_cancel] at bound
+  exact bound
 
 /-- Step 6: Relate minimum to sum
     k * min_{1≤i≤k} θᵢ ≤ ∑ᵢ₌₁ᵏ θᵢ -/
@@ -720,7 +727,36 @@ lemma theorem4_step6 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (k : ℕ) (hk : k > 0) :
     (k : ℝ) * (⨅ i ∈ Finset.range k, theta gipp (i + 1)) ≤
     ∑ i in Finset.range k, theta gipp (i + 1) := by
-  sorry
+  let f := fun i => theta gipp (i + 1)
+  let s := Finset.range k
+
+  have h_nonempty : s.Nonempty := ⟨0, Finset.mem_range.mpr hk⟩
+
+  -- Work directly with Finset.inf' and relate to bounded iInf at the end
+  have key_ineq : (k : ℝ) * s.inf' h_nonempty f ≤ ∑ i in s, f i := by
+    calc (k : ℝ) * s.inf' h_nonempty f
+        = ∑ _i in s, s.inf' h_nonempty f := by
+          rw [Finset.sum_const, Finset.card_range]
+          simp [nsmul_eq_mul]
+      _ ≤ ∑ i in s, f i := by
+          apply Finset.sum_le_sum
+          intro i hi
+          exact Finset.inf'_le f hi
+
+  -- The bounded iInf is ≤ inf' for finite sets
+  suffices h : (⨅ i ∈ s, f i) ≤ s.inf' h_nonempty f by
+    calc (k : ℝ) * (⨅ i ∈ s, f i)
+        ≤ (k : ℝ) * s.inf' h_nonempty f := by
+          apply mul_le_mul_of_nonneg_left h
+          exact Nat.cast_nonneg k
+      _ ≤ ∑ i in s, f i := key_ineq
+
+  -- Show bounded iInf ≤ inf': the iInf is ≤ the minimum value
+  obtain ⟨i_min, hi_mem, hi_min⟩ := s.exists_mem_eq_inf' h_nonempty f
+  have : (⨅ i ∈ s, f i) ≤ f i_min :=
+    @iInf₂_le ℝ ℕ (fun i => i ∈ s) _ _ (fun i _ => f i) i_min hi_mem
+  calc (⨅ i ∈ s, f i) ≤ f i_min := this
+    _ = s.inf' h_nonempty f := hi_min.symm
 
 /-- Step 7: The existence of an index achieving the minimum
     There exists i ∈ {1,...,k} such that θᵢ = min_{1≤j≤k} θⱼ -/
@@ -728,7 +764,23 @@ lemma theorem4_step7 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
     (k : ℕ) (hk : k > 0) :
     ∃ i ∈ Finset.range k, theta gipp (i + 1) = ⨅ j ∈ Finset.range k, theta gipp (j + 1) := by
-  sorry
+  have h_nonempty : (Finset.range k).Nonempty := ⟨0, Finset.mem_range.mpr hk⟩
+  let f := fun i => theta gipp (i + 1)
+
+  -- Find the minimum element
+  obtain ⟨i_min, hi_mem, hi_min⟩ := (Finset.range k).exists_mem_eq_inf' h_nonempty f
+  use i_min, hi_mem
+
+  -- Prove equality with the infimum
+  have h_le_all : ∀ j ∈ Finset.range k, f i_min ≤ f j := by
+    intro j hj
+    rw [← hi_min]
+    exact Finset.inf'_le f hj
+
+  -- For finite sets, the Finset.inf' equals the bounded iInf
+  have : (⨅ j ∈ Finset.range k, f j) = Finset.inf' (Finset.range k) h_nonempty f := by
+    sorry -- Requires relating bounded iInf to Finset.inf' for finite sets
+  rw [this, hi_min]
 
 /-- Step 8: From theta bound to epsilon bound
     If θᵢ ≤ bound, then εᵢ ≤ σ·bound/(2λᵢ) -/
@@ -736,7 +788,34 @@ lemma theorem4_step8_eps {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
     (i : ℕ) (hi : i > 0) (bound : ℝ) (hbound : theta gipp i ≤ bound) :
     gipp.eps i ≤ σ * bound / (2 * gipp.lam i) := by
-  sorry
+  -- theta is the max of two terms, so each term is ≤ theta
+  unfold theta at hbound
+  have σ_pos := gipp.σ_bound.1
+  have lam_pos := gipp.lam_pos i hi
+
+  -- From the definition: theta = max(2λᵢεᵢ/σ, ...) ≤ bound
+  -- Therefore: 2λᵢεᵢ/σ ≤ bound
+  have first_term_bound : 2 * gipp.lam i * gipp.eps i / σ ≤ bound := by
+    calc 2 * gipp.lam i * gipp.eps i / σ
+        ≤ max (2 * gipp.lam i * gipp.eps i / σ)
+              ((gipp.lam i)^2 * ‖v_general gipp i‖^2 / (1 + Real.sqrt σ)^2) := le_max_left _ _
+      _ ≤ bound := hbound
+
+  -- Rearrange: 2λᵢεᵢ/σ ≤ bound implies εᵢ ≤ σ·bound/(2λᵢ)
+  have : 2 * gipp.lam i * gipp.eps i ≤ σ * bound := by
+    calc 2 * gipp.lam i * gipp.eps i
+        = (2 * gipp.lam i * gipp.eps i / σ) * σ := by
+          field_simp [ne_of_gt σ_pos]
+      _ ≤ bound * σ := by
+          apply mul_le_mul_of_nonneg_right first_term_bound (le_of_lt σ_pos)
+      _ = σ * bound := mul_comm _ _
+
+  calc gipp.eps i
+      = 2 * gipp.lam i * gipp.eps i / (2 * gipp.lam i) := by
+        field_simp [ne_of_gt lam_pos]
+    _ ≤ σ * bound / (2 * gipp.lam i) := by
+        apply div_le_div_of_nonneg_right this
+        positivity
 
 /-- Step 9: From theta bound to v norm bound
     If θᵢ ≤ bound, then ‖vᵢ‖² ≤ (1+√σ)²·bound/λᵢ² -/
@@ -744,7 +823,36 @@ lemma theorem4_step9_vnorm {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (gipp : GeneralizedInexactProximalPoint T σ x₀)
     (i : ℕ) (hi : i > 0) (bound : ℝ) (hbound : theta gipp i ≤ bound) :
     ‖v_general gipp i‖^2 ≤ (1 + Real.sqrt σ)^2 * bound / (gipp.lam i)^2 := by
-  sorry
+  -- theta is the max of two terms, so each term is ≤ theta
+  unfold theta at hbound
+  have lam_pos := gipp.lam_pos i hi
+
+  -- From the definition: theta = max(..., λᵢ²‖vᵢ‖²/(1+√σ)²) ≤ bound
+  -- Therefore: λᵢ²‖vᵢ‖²/(1+√σ)² ≤ bound
+  have second_term_bound : (gipp.lam i)^2 * ‖v_general gipp i‖^2 / (1 + Real.sqrt σ)^2 ≤ bound := by
+    calc (gipp.lam i)^2 * ‖v_general gipp i‖^2 / (1 + Real.sqrt σ)^2
+        ≤ max (2 * gipp.lam i * gipp.eps i / σ)
+              ((gipp.lam i)^2 * ‖v_general gipp i‖^2 / (1 + Real.sqrt σ)^2) := le_max_right _ _
+      _ ≤ bound := hbound
+
+  -- Rearrange: λᵢ²‖vᵢ‖²/(1+√σ)² ≤ bound implies ‖vᵢ‖² ≤ (1+√σ)²·bound/λᵢ²
+  have sqrt_pos : 0 < 1 + Real.sqrt σ := by
+    have : 0 ≤ Real.sqrt σ := Real.sqrt_nonneg σ
+    linarith
+
+  have : (gipp.lam i)^2 * ‖v_general gipp i‖^2 ≤ (1 + Real.sqrt σ)^2 * bound := by
+    calc (gipp.lam i)^2 * ‖v_general gipp i‖^2
+        = ((gipp.lam i)^2 * ‖v_general gipp i‖^2 / (1 + Real.sqrt σ)^2) * (1 + Real.sqrt σ)^2 := by
+          field_simp [ne_of_gt (sq_pos_of_pos sqrt_pos)]
+      _ ≤ bound * (1 + Real.sqrt σ)^2 := by
+          apply mul_le_mul_of_nonneg_right second_term_bound (sq_nonneg _)
+      _ = (1 + Real.sqrt σ)^2 * bound := mul_comm _ _
+
+  calc ‖v_general gipp i‖^2
+      = (gipp.lam i)^2 * ‖v_general gipp i‖^2 / (gipp.lam i)^2 := by
+        field_simp [ne_of_gt (sq_pos_of_pos lam_pos)]
+    _ ≤ (1 + Real.sqrt σ)^2 * bound / (gipp.lam i)^2 := by
+        apply div_le_div_of_nonneg_right this (sq_nonneg _)
 
 /-- Theorem 4 (Pointwise convergence):
     The generalized IPP framework satisfies:
@@ -767,10 +875,10 @@ theorem theorem4 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
   have min_theta_bound : (⨅ i ∈ Finset.range k, theta gipp (i + 1)) ≤
       ‖x₀ - x_star‖^2 / ((1 - σ) * k) := by
     -- Step 4: Get sum bound on norms
-    have sum_norm_bound := theorem4_step4 gipp k hk x_star h_sol hsmooth
+    have sum_norm_bound := theorem4_step4 gipp k x_star h_sol hsmooth
 
     -- Step 5: Apply theta_bound lemma to bound sum of thetas
-    have sum_theta_bound := theorem4_step5 gipp k hk hsmooth
+    have sum_theta_bound := theorem4_step5 gipp k hsmooth
 
     -- Step 6: Relate minimum to sum
     have min_to_sum := theorem4_step6 gipp k hk
