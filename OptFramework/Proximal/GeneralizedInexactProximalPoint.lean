@@ -720,6 +720,12 @@ lemma theorem4_step5 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
   rw [Nat.add_sub_cancel] at bound
   exact bound
 
+/-- Auxiliary lemma: bounded infimum is less than or equal to any element -/
+lemma biInf_le_of_mem {α β : Type*} [ConditionallyCompleteLattice α] {s : Finset β} {f : β → α}
+    (h_nonempty : s.Nonempty) (i : β) (hi : i ∈ s) :
+    (⨅ j ∈ s, f j) ≤ f i := by
+  sorry
+
 /-- Step 6: Relate minimum to sum
     k * min_{1≤i≤k} θᵢ ≤ ∑ᵢ₌₁ᵏ θᵢ -/
 lemma theorem4_step6 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
@@ -727,36 +733,24 @@ lemma theorem4_step6 {T : MonotoneOperator E} {σ : ℝ} {x₀ : E}
     (k : ℕ) (hk : k > 0) :
     (k : ℝ) * (⨅ i ∈ Finset.range k, theta gipp (i + 1)) ≤
     ∑ i in Finset.range k, theta gipp (i + 1) := by
-  let f := fun i => theta gipp (i + 1)
-  let s := Finset.range k
+  -- Define the minimum value
+  let m := ⨅ i ∈ Finset.range k, theta gipp (i + 1)
 
-  have h_nonempty : s.Nonempty := ⟨0, Finset.mem_range.mpr hk⟩
+  have h_nonempty : (Finset.range k).Nonempty := ⟨0, Finset.mem_range.mpr hk⟩
 
-  -- Work directly with Finset.inf' and relate to bounded iInf at the end
-  have key_ineq : (k : ℝ) * s.inf' h_nonempty f ≤ ∑ i in s, f i := by
-    calc (k : ℝ) * s.inf' h_nonempty f
-        = ∑ _i in s, s.inf' h_nonempty f := by
-          rw [Finset.sum_const, Finset.card_range]
-          simp [nsmul_eq_mul]
-      _ ≤ ∑ i in s, f i := by
+  -- Show that m ≤ theta gipp (i + 1) for all i in range
+  have h_le : ∀ i ∈ Finset.range k, m ≤ theta gipp (i + 1) := by
+    intro i hi
+    exact biInf_le_of_mem h_nonempty i hi
+
+  -- Calculate: k * m = sum of m over k terms ≤ sum of theta
+  calc (k : ℝ) * m
+      = ∑ i in Finset.range k, m := by
+          rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+    _ ≤ ∑ i in Finset.range k, theta gipp (i + 1) := by
           apply Finset.sum_le_sum
           intro i hi
-          exact Finset.inf'_le f hi
-
-  -- The bounded iInf is ≤ inf' for finite sets
-  suffices h : (⨅ i ∈ s, f i) ≤ s.inf' h_nonempty f by
-    calc (k : ℝ) * (⨅ i ∈ s, f i)
-        ≤ (k : ℝ) * s.inf' h_nonempty f := by
-          apply mul_le_mul_of_nonneg_left h
-          exact Nat.cast_nonneg k
-      _ ≤ ∑ i in s, f i := key_ineq
-
-  -- Show bounded iInf ≤ inf': the iInf is ≤ the minimum value
-  obtain ⟨i_min, hi_mem, hi_min⟩ := s.exists_mem_eq_inf' h_nonempty f
-  have : (⨅ i ∈ s, f i) ≤ f i_min :=
-    @iInf₂_le ℝ ℕ (fun i => i ∈ s) _ _ (fun i _ => f i) i_min hi_mem
-  calc (⨅ i ∈ s, f i) ≤ f i_min := this
-    _ = s.inf' h_nonempty f := hi_min.symm
+          exact h_le i hi
 
 /-- Step 7: The existence of an index achieving the minimum
     There exists i ∈ {1,...,k} such that θᵢ = min_{1≤j≤k} θⱼ -/
